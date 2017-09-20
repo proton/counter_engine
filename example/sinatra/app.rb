@@ -2,7 +2,7 @@ $:.unshift("#{__dir__}/../../lib")
 require 'sinatra'
 require 'counter_engine'
 
-use CounterEngine, some_arg: 123
+use CounterEngine
 
 get '/' do
   'root_url'
