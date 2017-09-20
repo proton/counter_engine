@@ -57,18 +57,27 @@ class CounterEngine
   def count_visit(env, session_id)
     url = env['REQUEST_PATH']
 
-    # add
-    # increment site_visits_month
-    # increment page_visits_month
-    # increment site_visits_day
-    # increment page_visits_day
-
-    # add to set page_uniq_visits_month ???
-    # add visited pages to set
-
-    url = env['REQUEST_PATH']
     timestamp = Time.now
-    ip = env['REMOTE_ADDR']
-    p [url, timestamp, ip]
+
+    # set first_visit_ts
+
+    # create session if nil
+    # add page to set
+    # set first visit
+    first_site_visit = true
+    first_page_visit = false
+
+    keys = %w(all %Y %Y-%m %Y-%m-%d).map { |key| timestamp.strftime(key) }
+    keys.each do |keys|
+      #TODO: уникальный разделитель
+      increment_count "sitevisit|#{key}"
+      increment_count "pagevisit|#{page}|#{key}"
+      increment_count "uniqsitevisit|#{key}" if first_site_visit
+      increment_count "uniqpagevisit|#{page}|#{key}" if first_page_visit
+    end
+  end
+
+  def increment_count(key)
+    puts "incrementing #{key}"
   end
 end
