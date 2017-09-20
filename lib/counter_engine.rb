@@ -67,17 +67,19 @@ class CounterEngine
     first_site_visit = true
     first_page_visit = false
 
-    keys = %w(all %Y %Y-%m %Y-%m-%d).map { |key| timestamp.strftime(key) }
-    keys.each do |keys|
-      #TODO: уникальный разделитель
-      increment_count "sitevisit|#{key}"
-      increment_count "pagevisit|#{url}|#{key}"
-      increment_count "uniqsitevisit|#{key}" if first_site_visit
-      increment_count "uniqpagevisit|#{url}|#{key}" if first_page_visit
+    keys = %w(all %Y %Y-%m %Y-%m-%d).map { |f| timestamp.strftime(f) }
+    redis.pipelined do
+      keys.each do |key|
+        #TODO: уникальный разделитель
+        increment_count "sitevisit|#{key}"
+        increment_count "pagevisit|#{url}|#{key}"
+        increment_count "uniqsitevisit|#{key}" if first_site_visit
+        increment_count "uniqpagevisit|#{url}|#{key}" if first_page_visit
+      end
     end
   end
 
   def increment_count(key)
-    puts "incrementing #{key}"
+    redis.incr key
   end
 end
