@@ -7,6 +7,7 @@ class CounterEngine
   attr_reader :uniq_detection_by, :cookie_expires_in, :cookie_name
 
   COOKIE_NEVER_EXPIRES = Time.parse('9999-12-31')
+  DIVIDER = '|'
 
   def initialize(app,
                  redis_host: nil, redis_port: nil, redis_db: nil, redis_path: nil,
@@ -22,6 +23,19 @@ class CounterEngine
     session_id, need_cookie = get_session_id(env)
     count_visit env, session_id
     process_request env, session_id, need_cookie
+  end
+
+  def visits(page: nil, unique: false, period: nil, period_type: :all)
+    key = page ? "pagevisit#{DIVIDER}#{url}" : 'sitevisit'
+    key = "unique#{key}" if unique
+    per = case period_type
+            when :all
+              :all
+            else
+              #TODO:
+          end
+    key = "#{key}#{DIVIDER}#{per}"
+    redis.get(key).to_i
   end
 
   private
@@ -71,11 +85,10 @@ class CounterEngine
     keys = %w(all %Y %Y-%m %Y-%m-%d).map { |f| timestamp.strftime(f) }
     redis.pipelined do
       keys.each do |key|
-        #TODO: уникальный разделитель
-        increment_count "sitevisit|#{key}"
-        increment_count "pagevisit|#{url}|#{key}"
-        increment_count "uniqsitevisit|#{key}" if first_site_visit
-        increment_count "uniqpagevisit|#{url}|#{key}" if first_page_visit
+        increment_count "sitevisit#{DIVIDER}#{key}"
+        increment_count "pagevisit#{DIVIDER}#{url}#{DIVIDER}#{key}"
+        increment_count "uniqsitevisit#{DIVIDER}#{key}" if first_site_visit
+        increment_count "uniqpagevisit#{DIVIDER}#{url}#{DIVIDER}#{key}" if first_page_visit
       end
     end
   end
