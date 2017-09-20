@@ -1,6 +1,6 @@
 require 'counter_engine/version'
 require 'redis'
-# require 'securerandom'
+require 'securerandom'
 
 class CounterEngine
   attr_reader :app, :redis
@@ -19,9 +19,9 @@ class CounterEngine
   end
 
   def call(env)
-    session_id = get_session_id(env)
+    session_id, need_cookie = get_session_id(env)
     count_visit env, session_id
-    process_request env, session_id
+    process_request env, session_id, need_cookie
   end
 
   private
@@ -29,11 +29,14 @@ class CounterEngine
   def get_session_id(env)
     case uniq_detection_by
       when :cookie
-        # TODO:
-        p env['HTTP_COOKIE']
-        'aaa'
+        # Какой-то временный кэш по ip в redis, чтобы избежать одновременных запросов?
+        regex = /#{cookie_name}=(.+?);/
+        m = env['HTTP_COOKIE'].to_s.match(regex)
+        return [m[1], false] if m
+        session_id = SecureRandom.uuid + '-' + Time.now.to_i.to_s(36)
+        [session_id, true]
       when :ip
-        env['REMOTE_ADDR']
+        [env['REMOTE_ADDR'], false]
     end
   end
 
@@ -42,15 +45,13 @@ class CounterEngine
     Time.now + cookie_expires_in
   end
 
-  def process_request(env, session_id)
+  def process_request(env, session_id, need_cookie)
     r = app.call env
-    first_visit = true #???
-    return r unless first_visit && uniq_detection_by == :cookie
-    # set cookie & responce
+    return r unless need_cookie
     status, headers, body = r
     response = Rack::Response.new body, status, headers
     expires_time = cookie_expires_time
-    response.set_cookie(cookie_name, { value: 1, path: '/', expires: expires_time })
+    response.set_cookie(cookie_name, { value: session_id, path: '/', expires: expires_time })
     response.finish
   end
 
