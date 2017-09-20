@@ -1,5 +1,11 @@
-require "counter_engine/version"
+require 'counter_engine/version'
 
-module CounterEngine
-  # Your code goes here...
+class CounterEngine
+  def initialize
+    #
+  end
+
+  def call(env)
+    [200, {'Content-Type' => 'text/html'}, ENV.inspect]
+  end
 end
