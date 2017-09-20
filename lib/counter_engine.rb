@@ -71,9 +71,9 @@ class CounterEngine
     keys.each do |keys|
       #TODO: уникальный разделитель
       increment_count "sitevisit|#{key}"
-      increment_count "pagevisit|#{page}|#{key}"
+      increment_count "pagevisit|#{url}|#{key}"
       increment_count "uniqsitevisit|#{key}" if first_site_visit
-      increment_count "uniqpagevisit|#{page}|#{key}" if first_page_visit
+      increment_count "uniqpagevisit|#{url}|#{key}" if first_page_visit
     end
   end
 
