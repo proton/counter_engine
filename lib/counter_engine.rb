@@ -28,22 +28,18 @@ class CounterEngine
 
   def show_stats(request)
     page = request.params['page']
+    period = request.params['period'].to_s
+    period = 'all' if period.empty?
 
     headers = { 'Content-Type' => 'application/json' }
     json = {
-      unique: visits(page: page, unique: true),
-      all: visits(page: page, unique: false)
+      total: visits(page: page, unique: false, period: period),
+      unique: visits(page: page, unique: true, period: period)
     }.to_json
     [200, headers, [json]]
   end
 
-  def visits(page: nil, unique: false, period: nil, period_type: :all)
-    period = case period_type
-            when :all
-              :all
-            else
-              #TODO:
-          end
+  def visits(page: nil, unique: false, period: 'all')
     key = db_key(page, unique, period)
     if unique
       redis.scard(key)

@@ -3,6 +3,7 @@ require 'rack/test'
 require 'json'
 require 'database_cleaner'
 require 'counter_engine'
+require 'active_support/testing/time_helpers'
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
@@ -13,6 +14,7 @@ RSpec.configure do |config|
   end
 
   config.include Rack::Test::Methods
+  config.include ActiveSupport::Testing::TimeHelpers
 
   config.before(:suite) do
     DatabaseCleaner.strategy = :truncation
