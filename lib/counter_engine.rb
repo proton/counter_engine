@@ -37,7 +37,7 @@ class CounterEngine
     headers = { 'Content-Type' => 'application/json' }
     json = {
       unique: visits(page: page, unique: true),
-      all: visits(page: page, unique: true)
+      all: visits(page: page, unique: false)
     }.to_json
     [200, headers, [json]]
   end

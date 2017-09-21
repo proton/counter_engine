@@ -1,6 +1,7 @@
 require 'bundler/setup'
 require 'rack/test'
 require 'json'
+require 'database_cleaner'
 require 'counter_engine'
 
 RSpec.configure do |config|
@@ -12,6 +13,16 @@ RSpec.configure do |config|
   end
 
   config.include Rack::Test::Methods
+
+  config.before(:suite) do
+    DatabaseCleaner.strategy = :truncation
+  end
+
+  config.around(:each) do |example|
+    DatabaseCleaner.cleaning do
+      example.run
+    end
+  end
 end
 
 class SimpleApp

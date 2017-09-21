@@ -21,9 +21,13 @@ describe CounterEngine do
         expect(subject[:all]).to eq(0)
       end
     end
-  end
 
-  # тут место для shared examples
-  # context: разные конфигурации
-  # TODO: чистка базы
+    context 'with requests' do
+      it 'should have visits' do
+        get('/some_url')
+        expect(subject[:unique]).to eq(1)
+        expect(subject[:all]).to eq(1)
+      end
+    end
+  end
 end
