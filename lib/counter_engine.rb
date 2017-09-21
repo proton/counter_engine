@@ -38,16 +38,18 @@ class CounterEngine
   end
 
   def visits(page: nil, unique: false, period: nil, period_type: :all)
-    key = page ? "pagevisit#{DIVIDER}#{page}" : 'sitevisit'
-    key = "unique#{key}" if unique
-    per = case period_type
+    period = case period_type
             when :all
               :all
             else
               #TODO:
           end
-    key = "#{key}#{DIVIDER}#{per}"
-    redis.get(key).to_i
+    key = db_key(page, unique, period)
+    if unique
+      redis.scard(key)
+    else
+      redis.get(key).to_i
+    end
   end
 
   private
@@ -65,32 +67,19 @@ class CounterEngine
 
     timestamp = Time.now
 
-    # Итак, у нас есть некий visit pages
-      # он пустой:
-    # first_site_visit = first_page_visit = true
-      # он полный, но без url:
-    # first_site_visit = false; first_page_visit = true
-      # он полный и с url:
-    # first_site_visit = first_page_visit = false
-
-    # create session if nil
-    # add page to set
-    # set first visit
-    first_site_visit = true
-    first_page_visit = false
-
-    keys = %w(all %Y %Y-%m %Y-%m-%d).map { |f| timestamp.strftime(f) }
+    periods = %w(all %Y %Y-%m %Y-%m-%d).map { |f| timestamp.strftime(f) }
     redis.pipelined do
-      keys.each do |key|
-        increment_count "sitevisit#{DIVIDER}#{key}"
-        increment_count "pagevisit#{DIVIDER}#{url}#{DIVIDER}#{key}"
-        increment_count "uniqsitevisit#{DIVIDER}#{key}" if first_site_visit
-        increment_count "uniqpagevisit#{DIVIDER}#{url}#{DIVIDER}#{key}" if first_page_visit
+      periods.each do |period|
+        redis.incr db_key(nil, false, period)
+        redis.incr db_key(url, false, period)
+        redis.sadd db_key(nil, true, period), session_id
+        redis.sadd db_key(url, true, period), session_id
       end
     end
   end
 
-  def increment_count(key)
-    redis.incr key
+  def db_key(page, unique, period)
+    key = page ? "pagevisits#{DIVIDER}#{page}" : 'sitevisits'
+    "#{'unique' if unique}#{key}#{DIVIDER}#{period}"
   end
 end
