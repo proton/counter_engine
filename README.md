@@ -2,7 +2,9 @@
 
 Simple rack middleware for counting page visits.
 
-It's not for production, just for learning puroses.
+It's not for production, just for learning purposes.
+
+[![Build Status](https://travis-ci.org/proton/counter_engine.svg?branch=master)](https://travis-ci.org/proton/counter_engine)
 
 ## Installation
 
