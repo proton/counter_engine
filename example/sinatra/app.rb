@@ -2,7 +2,7 @@ $:.unshift("#{__dir__}/../../lib")
 require 'sinatra'
 require 'counter_engine'
 
-use CounterEngine
+use CounterEngine, stats_path: '/stats.json'
 
 get '/' do
   'root_url'

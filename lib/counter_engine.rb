@@ -1,28 +1,45 @@
 require 'counter_engine/version'
 require 'redis'
 require 'securerandom'
+require 'time'
 
 class CounterEngine
   attr_reader :app, :redis
   attr_reader :uniq_detection_by, :cookie_expires_in, :cookie_name
+  attr_reader :stats_path
 
   COOKIE_NEVER_EXPIRES = Time.parse('9999-12-31')
   DIVIDER = '|'
 
   def initialize(app,
                  redis_host: nil, redis_port: nil, redis_db: nil, redis_path: nil,
-                 uniq_detection_by: :cookie, cookie_expires_in: nil, cookie_name: '__counter_engine_session_id')
+                 uniq_detection_by: :cookie, cookie_expires_in: nil, cookie_name: '__counter_engine_session_id',
+                 stats_path: nil)
     @app = app
     @redis = Redis.new(host: redis_host, port: redis_port, db: redis_db, path: redis_path)
     @uniq_detection_by = uniq_detection_by
     @cookie_expires_in = cookie_expires_in
     @cookie_name = cookie_name
+    @stats_path = stats_path
   end
 
   def call(env)
+    return show_stats(env) if stats_path && env['PATH_INFO'] == stats_path
     session_id, need_cookie = get_session_id(env)
     count_visit env, session_id
     process_request env, session_id, need_cookie
+  end
+
+  def show_stats(env)
+    m = env['QUERY_STRING'].to_s.match(/page=([^&]+)/)
+    page = m[1] if m
+
+    headers = { 'Content-Type' => 'application/json' }
+    json = {
+      unique: visits(page: page, unique: true),
+      all: visits(page: page, unique: true)
+    }.to_json
+    [200, headers, [json]]
   end
 
   def visits(page: nil, unique: false, period: nil, period_type: :all)
@@ -70,7 +87,7 @@ class CounterEngine
   end
 
   def count_visit(env, session_id)
-    url = env['REQUEST_PATH']
+    url = env['PATH_INFO']
 
     timestamp = Time.now
 
