@@ -8,7 +8,7 @@ describe CounterEngine do
   describe 'counter engine' do
     let(:app) do
       Rack::Builder.new do
-        use CounterEngine, stats_path: '/stats.json'
+        use CounterEngine, stats_path: '/stats.json', redis_db: 'counter_engine_test'
         run SimpleApp.new
       end
     end
