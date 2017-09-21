@@ -1,4 +1,5 @@
 require 'counter_engine/version'
+require 'counter_engine/request'
 require 'redis'
 require 'securerandom'
 require 'time'
@@ -24,15 +25,15 @@ class CounterEngine
   end
 
   def call(env)
-    return show_stats(env) if stats_path && env['PATH_INFO'] == stats_path
-    session_id, need_cookie = get_session_id(env)
-    count_visit env, session_id
-    process_request env, session_id, need_cookie
+    request = CounterEngine::Request.new(env)
+    return show_stats(request) if stats_path && request.url == stats_path
+    session_id, need_cookie = get_session_id(request)
+    count_visit request, session_id
+    process_request request, session_id, need_cookie
   end
 
-  def show_stats(env)
-    m = env['QUERY_STRING'].to_s.match(/page=([^&]+)/)
-    page = m[1] if m
+  def show_stats(request)
+    page = request.params['page']
 
     headers = { 'Content-Type' => 'application/json' }
     json = {
@@ -43,7 +44,7 @@ class CounterEngine
   end
 
   def visits(page: nil, unique: false, period: nil, period_type: :all)
-    key = page ? "pagevisit#{DIVIDER}#{url}" : 'sitevisit'
+    key = page ? "pagevisit#{DIVIDER}#{page}" : 'sitevisit'
     key = "unique#{key}" if unique
     per = case period_type
             when :all
@@ -57,18 +58,19 @@ class CounterEngine
 
   private
 
-  def get_session_id(env)
+  def get_session_id(request)
+    need_new_cookie = false
     case uniq_detection_by
       when :cookie
-        # Какой-то временный кэш по ip в redis, чтобы избежать одновременных запросов?
-        regex = /#{cookie_name}=(.+?);/
-        m = env['HTTP_COOKIE'].to_s.match(regex)
-        return [m[1], false] if m
-        session_id = SecureRandom.uuid + '-' + Time.now.to_i.to_s(36)
-        [session_id, true]
+        session_id = request.cookies[cookie_name]
+        unless session_id
+          session_id = SecureRandom.uuid + '-' + Time.now.to_i.to_s(36)
+          need_new_cookie = true
+        end
       when :ip
-        [env['REMOTE_ADDR'], false]
+        session_id = request.remote_ip
     end
+    [session_id, need_new_cookie]
   end
 
   def cookie_expires_time
@@ -76,7 +78,8 @@ class CounterEngine
     Time.now + cookie_expires_in
   end
 
-  def process_request(env, session_id, need_cookie)
+  def process_request(request, session_id, need_cookie)
+    env = request.env
     r = app.call env
     return r unless need_cookie
     status, headers, body = r
@@ -86,8 +89,8 @@ class CounterEngine
     response.finish
   end
 
-  def count_visit(env, session_id)
-    url = env['PATH_INFO']
+  def count_visit(request, session_id)
+    url = request.url
 
     timestamp = Time.now
 
