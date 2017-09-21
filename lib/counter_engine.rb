@@ -6,30 +6,24 @@ require 'time'
 
 class CounterEngine
   attr_reader :app, :redis
-  attr_reader :uniq_detection_by, :cookie_expires_in, :cookie_name
   attr_reader :stats_path
 
-  COOKIE_NEVER_EXPIRES = Time.parse('9999-12-31')
   DIVIDER = '|'
 
   def initialize(app,
                  redis_host: nil, redis_port: nil, redis_db: nil, redis_path: nil,
-                 uniq_detection_by: :cookie, cookie_expires_in: nil, cookie_name: '__counter_engine_session_id',
                  stats_path: nil)
     @app = app
     @redis = Redis.new(host: redis_host, port: redis_port, db: redis_db, path: redis_path)
-    @uniq_detection_by = uniq_detection_by
-    @cookie_expires_in = cookie_expires_in
-    @cookie_name = cookie_name
     @stats_path = stats_path
   end
 
   def call(env)
     request = CounterEngine::Request.new(env)
     return show_stats(request) if stats_path && request.url == stats_path
-    session_id, need_cookie = get_session_id(request)
+    session_id = get_session_id(request)
     count_visit request, session_id
-    process_request request, session_id, need_cookie
+    process_request request
   end
 
   def show_stats(request)
@@ -59,34 +53,11 @@ class CounterEngine
   private
 
   def get_session_id(request)
-    need_new_cookie = false
-    case uniq_detection_by
-      when :cookie
-        session_id = request.cookies[cookie_name]
-        unless session_id
-          session_id = SecureRandom.uuid + '-' + Time.now.to_i.to_s(36)
-          need_new_cookie = true
-        end
-      when :ip
-        session_id = request.remote_ip
-    end
-    [session_id, need_new_cookie]
+    request.remote_ip
   end
 
-  def cookie_expires_time
-    return COOKIE_NEVER_EXPIRES unless cookie_expires_in
-    Time.now + cookie_expires_in
-  end
-
-  def process_request(request, session_id, need_cookie)
-    env = request.env
-    r = app.call env
-    return r unless need_cookie
-    status, headers, body = r
-    response = Rack::Response.new body, status, headers
-    expires_time = cookie_expires_time
-    response.set_cookie(cookie_name, { value: session_id, path: '/', expires: expires_time })
-    response.finish
+  def process_request(request)
+    app.call request.env
   end
 
   def count_visit(request, session_id)
@@ -94,7 +65,13 @@ class CounterEngine
 
     timestamp = Time.now
 
-    # set first_visit_ts
+    # Итак, у нас есть некий visit pages
+      # он пустой:
+    # first_site_visit = first_page_visit = true
+      # он полный, но без url:
+    # first_site_visit = false; first_page_visit = true
+      # он полный и с url:
+    # first_site_visit = first_page_visit = false
 
     # create session if nil
     # add page to set
